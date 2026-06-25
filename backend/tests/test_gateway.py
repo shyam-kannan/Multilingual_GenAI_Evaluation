@@ -175,6 +175,10 @@ class TestGatewayRun:
         )
         assert r.status_code == 422
 
+    @patch(
+        "app.routers.gateway.world_readiness.validate",
+        return_value={"passed": True, "checks": []},
+    )
     @patch("app.routers.gateway.moderator.check_moderation", return_value=MOCK_MODERATION)
     @patch(
         "app.routers.gateway.judge.score_hallucination",
@@ -186,7 +190,7 @@ class TestGatewayRun:
     )
     @patch("app.routers.gateway.generate", side_effect=_mock_generate)
     def test_with_specific_version_id(
-        self, mock_gen, mock_qual, mock_hall, mock_mod, client
+        self, mock_gen, mock_qual, mock_hall, mock_mod, mock_wr, client
     ):
         pid, vid = _setup_prompt(client)
         v2_id = client.post(

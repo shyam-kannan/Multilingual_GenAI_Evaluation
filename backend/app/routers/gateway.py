@@ -7,7 +7,7 @@ from app.models.eval_run import EvalRun
 from app.models.prompt import Prompt, PromptVersion
 from app.schemas.eval_run import GatewayRunResponse
 from app.schemas.gateway import GatewayRunRequest
-from app.services import judge, moderator
+from app.services import judge, moderator, world_readiness
 from app.services.llm import generate
 
 router = APIRouter(prefix="/api/gateway", tags=["gateway"])
@@ -50,9 +50,9 @@ def run_gateway(body: GatewayRunRequest, db: Session = Depends(get_db)):
     )
     moderation_result = moderator.check_moderation(llm_output, body.locale)
 
-    # World-readiness is a placeholder until Phase 4
-    world_readiness_passed = True
-    world_readiness_details = {"status": "not_implemented"}
+    wr_result = world_readiness.validate(llm_output, body.locale)
+    world_readiness_passed = wr_result["passed"]
+    world_readiness_details = wr_result
 
     quality_passed = quality["score"] >= settings.quality_threshold
     hallucination_passed = hallucination["score"] <= settings.hallucination_threshold
