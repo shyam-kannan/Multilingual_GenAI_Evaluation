@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import eval_runs, gateway, golden_sets, health, prompts
+from app.routers import ci, dashboard, eval_runs, gateway, golden_sets, health, prompts
 
 app = FastAPI(
     title="Multilingual GenAI Evaluation Gateway",
@@ -22,3 +22,5 @@ app.include_router(prompts.router)
 app.include_router(golden_sets.router)
 app.include_router(gateway.router)
 app.include_router(eval_runs.router)
+app.include_router(ci.router)
+app.include_router(dashboard.router)
