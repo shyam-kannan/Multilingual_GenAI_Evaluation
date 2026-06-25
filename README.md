@@ -135,13 +135,25 @@ This starts PostgreSQL, the backend (with auto-migration), and the frontend.
 
 ## Dashboard Pages
 
-**Overview**: Shows pass rates per language, total runs, registered prompts, and a recent runs table. Includes an explanation of how scoring works at the bottom.
+### Overview (Landing Page)
 
-**Prompt History** (click "View History" on any prompt): Bar charts comparing quality and hallucination scores across versions and languages. Shows the prompt template text, labels, and per-locale scores for each version.
+The main dashboard gives you an at-a-glance view of how your AI outputs are performing across all four languages. At the top, it explains what the system does and what each metric means. The "Pass Rate by Language" cards show what percentage of evaluations passed all four checks for each locale, with progress bars and average scores. Below that, summary stats show total runs, registered prompts, and the recent pass rate. The prompts table links to version history, and the recent runs table lets you click into any individual evaluation. A "How scoring works" section at the bottom defines each metric.
 
-**Eval Run Detail** (click any run ID): The full evaluation of a single AI response. Shows the input, the AI's output, and four score cards with reasoning from each judge.
+![Overview - Landing Page](Web_Images/LandingPage.png)
 
-**CI History**: Lists all CI regression checks with pass/fail status, detected regressions, and per-language score breakdowns. Includes an explanation of how regression detection works.
+### Prompt History (Version Comparison)
+
+When you click "View History" on a prompt, this page shows how output quality has changed across prompt versions and languages. The top bar chart compares average quality scores per language for each version, with a yellow dashed line marking the 70% pass threshold. A second chart does the same for hallucination scores (with a 30% fail threshold). Below the charts, each version card shows the prompt template text, labels (production/staging), and per-locale quality and hallucination percentages color-coded green (passing) or red (failing). You can also diff two versions to see exactly what changed in the prompt text.
+
+![Prompt History - Version Comparison](Web_Images/PromptResults.png)
+
+### Eval Run Detail
+
+When you click any run ID from the overview table, this page shows the full evaluation of a single AI response. It displays the original input and the AI's generated output side by side, followed by four score cards: Quality, Hallucination, Moderation, and World-Readiness. Each card shows the score, the pass/fail threshold, the judge's reasoning, and a collapsible raw details section.
+
+### CI History
+
+Lists all CI regression checks with pass/fail status, detected regressions, and per-language score breakdowns. Each failed run shows exactly which languages regressed and by how much (e.g., "en-US quality: baseline 90% to candidate 50%, delta -40%"). A "How CI regression detection works" section at the bottom explains the four-step process.
 
 ## API Endpoints
 
