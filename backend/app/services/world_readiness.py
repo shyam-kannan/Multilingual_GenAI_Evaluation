@@ -44,7 +44,7 @@ def _check_untranslated_english(text: str, threshold: float = 0.3) -> dict:
         "check": "untranslated_strings",
         "passed": passed,
         "latin_ratio": round(latin_ratio, 3),
-        "detail": f"Latin script ratio: {latin_ratio:.1%}" + ("" if passed else " — likely untranslated content"),
+        "detail": f"Latin script ratio: {latin_ratio:.1%}" + ("" if passed else " - likely untranslated content"),
     }
 
 
@@ -116,7 +116,7 @@ def validate_es_mx(text: str) -> dict:
     checks.append({
         "check": "spanish_diacritics",
         "passed": has_spanish_chars,
-        "detail": "Spanish diacritics found" if has_spanish_chars else "No Spanish diacritics — may be untranslated English",
+        "detail": "Spanish diacritics found" if has_spanish_chars else "No Spanish diacritics - may be untranslated English",
     })
 
     has_foreign = _has_arabic_script(text) or _has_cjk(text)

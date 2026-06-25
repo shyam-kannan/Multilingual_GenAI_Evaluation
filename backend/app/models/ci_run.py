@@ -2,27 +2,27 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
 from app.database import Base
+from app.utils.uuid_type import CompatibleUUID
 
 
 class CIRun(Base):
     __tablename__ = "ci_runs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        CompatibleUUID, primary_key=True, default=uuid.uuid4
     )
     prompt_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("prompts.id"), nullable=False
+        CompatibleUUID, ForeignKey("prompts.id"), nullable=False
     )
     candidate_version_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("prompt_versions.id"), nullable=False
+        CompatibleUUID, ForeignKey("prompt_versions.id"), nullable=False
     )
     baseline_version_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("prompt_versions.id"), nullable=True
+        CompatibleUUID, ForeignKey("prompt_versions.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     regressions: Mapped[list] = mapped_column(JSON, default=list)

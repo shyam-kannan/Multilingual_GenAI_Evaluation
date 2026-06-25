@@ -1,110 +1,153 @@
 # Multilingual GenAI Evaluation & Moderation Gateway
 
-A shared gateway service for running, evaluating, and moderating LLM outputs across multiple languages. Send a prompt name, input, and locale — get back a structured evaluation report with pass/fail across quality, hallucination, moderation, and world-readiness checks.
+## Why this project exists
+
+When companies deploy AI-powered features across multiple languages, they face a hard problem: how do you know if the AI's output is actually good in Spanish, Arabic, or Japanese? English outputs might look fine, but translated or multilingual outputs can silently degrade in quality, hallucinate facts, produce culturally inappropriate content, or fail to use the correct script entirely.
+
+This project solves that problem. It is a complete evaluation and moderation pipeline that automatically scores AI outputs across 4 languages, catches quality regressions before they ship, and provides a visual dashboard so teams can monitor how their prompts perform over time.
+
+## What it does
+
+1. **You send a prompt name, user input, and target language** to the gateway API
+2. **The gateway generates an AI response** using Claude (Anthropic's LLM)
+3. **Four independent checks score the output:**
+   - **Quality**: An LLM judge scores relevance, completeness, and coherence (0-100%, must be 70%+)
+   - **Hallucination**: Detects fabricated or unsupported claims (0-100%, must be 30% or lower)
+   - **Moderation**: Checks for harmful or unsafe content (pass/fail, errors default to fail)
+   - **World-Readiness**: Validates correct script, text direction, and formatting for the target language
+4. **The result is stored** with full reasoning, and a pass/fail verdict is returned
+5. **A CI gate** compares new prompt versions against production baselines and blocks regressions
+6. **A React dashboard** visualizes all of this with charts, drill-down views, and explanations
+
+## Supported Languages
+
+| Locale | Language | What world-readiness checks |
+|--------|----------|----------------------------|
+| `en-US` | American English | Latin script present, no foreign script leaks, US number/date formatting |
+| `es-MX` | Mexican Spanish | Latin script + Spanish diacritics, no foreign script contamination |
+| `ar-SA` | Saudi Arabic | Arabic script present, right-to-left text direction, detects untranslated English |
+| `ja-JP` | Japanese | CJK script (Hiragana/Katakana/Kanji) present, detects untranslated English |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        React Dashboard (:5173)                      │
-│  ┌──────────┐ ┌───────────────┐ ┌──────────────┐ ┌──────────────┐  │
-│  │ Overview  │ │PromptHistory  │ │EvalRunDetail │ │  CI History   │  │
-│  │(badges,   │ │(charts, diff, │ │(scores,      │ │(regressions, │  │
-│  │ stats)    │ │ versions)     │ │ reasoning)   │ │ details)     │  │
-│  └──────────┘ └───────────────┘ └──────────────┘ └──────────────┘  │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │ /api/*
-┌────────────────────────────▼────────────────────────────────────────┐
-│                      FastAPI Backend (:8000)                         │
-│                                                                     │
-│  ┌─────────────┐  ┌──────────────────────────────────────────────┐  │
-│  │   Prompt     │  │            Gateway Pipeline                  │  │
-│  │  Registry    │  │                                              │  │
-│  │ (versions,   │  │  Input ──► Generate ──► Quality Judge ───┐   │  │
-│  │  dedup,      │  │            (Sonnet)    (Sonnet, 0-1)     │   │  │
-│  │  labels,     │  │                                          ▼   │  │
-│  │  rollback,   │  │                        Hallucination ◄───┘   │  │
-│  │  diff)       │  │                        Judge (Sonnet, 0-1)   │  │
-│  └─────────────┘  │                              │                │  │
-│                    │                              ▼                │  │
-│  ┌─────────────┐  │                        Moderation             │  │
-│  │  Golden      │  │                        (Haiku, fail-closed)  │  │
-│  │  Sets        │  │                              │                │  │
-│  └─────────────┘  │                              ▼                │  │
-│                    │                      World-Readiness          │  │
-│  ┌─────────────┐  │                      (per-locale checks)     │  │
-│  │  CI Gate     │  │                              │                │  │
-│  │ (regression  │  │                              ▼                │  │
-│  │  detection)  │  │                     EvalRun (persisted)      │  │
-│  └─────────────┘  └──────────────────────────────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  PostgreSQL     │
-                    │  (5 tables)     │
-                    └─────────────────┘
+                     React Dashboard (:5173)
+                     Overview | Prompt History | Eval Detail | CI History
+                            |
+                            | /api/*
+                            v
+                     FastAPI Backend (:8000)
+                            |
+          +-----------------+-----------------+
+          |                 |                 |
+     Prompt Registry   Gateway Pipeline   CI Gate
+     (CRUD, versions,  (the core flow)    (regression
+      dedup, labels,        |              detection)
+      rollback, diff)       |
+                            v
+                  1. Generate output (Claude Sonnet)
+                            |
+                  2. Quality judge (Claude Sonnet)
+                            |
+                  3. Hallucination judge (Claude Sonnet)
+                            |
+                  4. Moderation check (Claude Haiku, fail-closed)
+                            |
+                  5. World-readiness validation (rule-based, per locale)
+                            |
+                  6. Store EvalRun + return pass/fail
+                            |
+                     PostgreSQL / SQLite
 ```
 
-## Supported Locales
-
-| Locale | Language | World-Readiness Checks |
-|--------|----------|----------------------|
-| `en-US` | American English | Latin script, no foreign script leaks, US number/date format |
-| `es-MX` | Mexican Spanish | Latin + diacritics (á,é,í,ó,ú,ñ), no foreign script leaks |
-| `ar-SA` | Saudi Arabic | Arabic script, RTL direction, untranslated English detection |
-| `ja-JP` | Japanese | CJK script (Hiragana/Katakana/Kanji), untranslated English detection |
-
-## Quick Start
+## Quick Start (Local, no Docker needed)
 
 ### Prerequisites
 
-- Docker & Docker Compose
-- An Anthropic API key (for live LLM calls; seed data works without one)
+- Python 3.10+
+- Node.js 18+
+- An Anthropic API key (optional for demo; seed data works without one)
 
-### 1. Clone and configure
+### 1. Clone the repo
 
 ```bash
 git clone https://github.com/shyam-kannan/Multilingual_GenAI_Evaluation.git
 cd Multilingual_GenAI_Evaluation
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
 ```
 
-### 2. Start services
+### 2. Start the backend
 
 ```bash
-docker compose up --build
+cd backend
+pip install -r requirements.txt
 ```
 
-This starts:
-- **PostgreSQL** on port 5432
-- **FastAPI backend** on port 8000 (with auto-migration)
-- **React frontend** on port 5173
+Create a `.env` file in the `backend/` directory:
+
+```
+DATABASE_URL=sqlite:///eval_gateway.db
+ANTHROPIC_API_KEY=your-key-here
+ENVIRONMENT=development
+```
+
+Start the server:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The backend auto-creates SQLite tables on startup. Visit http://localhost:8000/health to confirm.
 
 ### 3. Seed demo data
 
-```bash
-# With Docker
-docker compose exec backend python /app/../scripts/seed.py
+In a separate terminal:
 
-# Or locally (with backend running)
+```bash
 pip install requests
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/eval_gateway python scripts/seed.py
+python scripts/seed.py
 ```
 
-### 4. Open the dashboard
+This creates 2 prompts, 4 versions, 8 golden examples, 24 eval runs, and 3 CI runs with realistic multilingual data, including:
 
-Visit **http://localhost:5173** to see:
-- Overview with per-locale pass rates
-- Prompt version history with quality charts
-- Eval run details with judge reasoning
-- CI history with regression details
+- A failing Arabic evaluation (English output returned for an Arabic locale, caught by world-readiness)
+- A prompt regression (v2 quality dropped 40%+ vs production v1)
+- CI runs showing the regression being detected and blocked
 
-## API Reference
+### 4. Start the frontend
+
+```bash
+cd frontend
+npm install
+npx vite
+```
+
+Open http://localhost:5173 to see the dashboard.
+
+### Using Docker Compose instead
+
+```bash
+cp .env.example .env
+# Edit .env with your ANTHROPIC_API_KEY
+docker compose up --build
+```
+
+This starts PostgreSQL, the backend (with auto-migration), and the frontend.
+
+## Dashboard Pages
+
+**Overview**: Shows pass rates per language, total runs, registered prompts, and a recent runs table. Includes an explanation of how scoring works at the bottom.
+
+**Prompt History** (click "View History" on any prompt): Bar charts comparing quality and hallucination scores across versions and languages. Shows the prompt template text, labels, and per-locale scores for each version.
+
+**Eval Run Detail** (click any run ID): The full evaluation of a single AI response. Shows the input, the AI's output, and four score cards with reasoning from each judge.
+
+**CI History**: Lists all CI regression checks with pass/fail status, detected regressions, and per-language score breakdowns. Includes an explanation of how regression detection works.
+
+## API Endpoints
 
 ### Health
 ```
-GET /health → {"status": "ok", "version": "1.0.0"}
+GET /health
 ```
 
 ### Prompts
@@ -112,109 +155,102 @@ GET /health → {"status": "ok", "version": "1.0.0"}
 POST   /api/prompts                                     Create prompt
 GET    /api/prompts                                     List prompts
 GET    /api/prompts/{id}                                Get prompt + versions
-POST   /api/prompts/{id}/versions                       Create version (dedup check)
-PATCH  /api/prompts/{id}/versions/{vid}/activate        Set active
+POST   /api/prompts/{id}/versions                       Create version (content-hash dedup)
+PATCH  /api/prompts/{id}/versions/{vid}/activate        Set as active
 PATCH  /api/prompts/{id}/versions/{vid}/labels          Update labels
-POST   /api/prompts/{id}/rollback/{vid}                 Rollback
+POST   /api/prompts/{id}/rollback/{vid}                 Rollback to version
 GET    /api/prompts/{id}/diff/{v1_id}/{v2_id}           Diff two versions
 ```
 
 ### Golden Sets
 ```
-POST   /api/golden-sets                   Create example
-GET    /api/golden-sets?prompt_id=&locale= List (filterable)
-PUT    /api/golden-sets/{id}              Update
-DELETE /api/golden-sets/{id}              Delete
+POST   /api/golden-sets                    Create golden example
+GET    /api/golden-sets?prompt_id=&locale=  List (filterable)
+PUT    /api/golden-sets/{id}               Update
+DELETE /api/golden-sets/{id}               Delete
 ```
 
-### Gateway
+### Gateway (core evaluation pipeline)
 ```
 POST /api/gateway/run
-Body: {"prompt_name": "...", "input": "...", "locale": "en-US", "version_id": "optional"}
-→ Runs full pipeline: generate → quality judge → hallucination judge → moderation → world-readiness
-→ Returns: eval_run_id, scores, pass/fail, detailed report
+Body: {"prompt_name": "...", "input": "...", "locale": "en-US"}
+Returns: eval_run_id, all scores, pass/fail, detailed reasoning
 ```
 
 ### Eval Runs
 ```
-GET /api/eval-runs?locale=&passed=&limit=    List with filters
-GET /api/eval-runs/{id}                      Full detail
+GET /api/eval-runs?locale=&passed=&limit=   List with filters
+GET /api/eval-runs/{id}                     Full detail
 ```
 
 ### CI Gate
 ```
 POST /api/ci/check
 Body: {"prompt_name": "...", "locales": ["en-US", "es-MX", "ar-SA", "ja-JP"]}
-→ Compares candidate vs production baseline using golden examples
-→ Fails if quality drops >10% or hallucination rises >10% in any locale
+Returns: passed/failed, list of regressions, ci_run_id
 ```
 
-### Dashboard
+### Dashboard Data
 ```
-GET /api/dashboard/overview                Per-locale stats, recent runs
-GET /api/dashboard/prompts/{id}/history    Score trends across versions
-GET /api/dashboard/ci-history              Recent CI runs
-```
-
-## Pass/Fail Thresholds
-
-| Check | Threshold | Direction |
-|-------|-----------|-----------|
-| Quality | ≥ 0.7 | Higher is better |
-| Hallucination | ≤ 0.3 | Lower is better |
-| Moderation | pass/fail | Fail-closed (errors = blocked) |
-| World-Readiness | pass/fail | Per-locale script/format checks |
-| CI Regression | Δ > 0.1 | Any locale score drop blocks |
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | FastAPI, SQLAlchemy, Alembic, Pydantic |
-| Database | PostgreSQL 16 |
-| LLM | Anthropic Claude (Sonnet for generation/judging, Haiku for moderation) |
-| Frontend | React 18, Vite, TypeScript, Tailwind CSS, Recharts |
-| i18n | babel, langdetect, python-bidi |
-| Testing | pytest (79 tests), Vitest (11 tests) |
-| CI/CD | GitHub Actions (3 jobs: backend, frontend, prompt regression) |
-| Infra | Docker Compose |
-
-## Project Structure
-
-```
-├── backend/
-│   ├── app/
-│   │   ├── main.py              FastAPI app + CORS
-│   │   ├── config.py            Pydantic Settings
-│   │   ├── database.py          SQLAlchemy engine
-│   │   ├── models/              5 DB models
-│   │   ├── schemas/             Pydantic request/response schemas
-│   │   ├── routers/             7 route modules
-│   │   ├── services/            LLM, judge, moderator, world-readiness, CI gate
-│   │   └── utils/               Content hashing
-│   ├── alembic/                 Database migrations
-│   └── tests/                   79 pytest tests
-├── frontend/
-│   ├── src/
-│   │   ├── pages/               4 pages (Overview, PromptHistory, EvalRunDetail, CIHistory)
-│   │   ├── components/          6 components (Layout, LocaleBadge, ScoreChart, etc.)
-│   │   ├── api/                 Typed API client
-│   │   └── types/               TypeScript interfaces
-│   └── tests/                   11 Vitest tests
-├── scripts/
-│   └── seed.py                  Demo data seeder (24+ eval runs)
-├── .github/workflows/ci.yml    GitHub Actions CI pipeline
-└── docker-compose.yml           3-service orchestration
+GET /api/dashboard/overview                 Per-locale stats, recent runs
+GET /api/dashboard/prompts/{id}/history     Score trends across versions
+GET /api/dashboard/ci-history               Recent CI runs
 ```
 
 ## Running Tests
 
 ```bash
-# Backend
-cd backend && pytest tests/ -v
+# Backend (79 tests, uses in-memory SQLite, all LLM calls mocked)
+cd backend
+pytest tests/ -v
 
-# Frontend
-cd frontend && npx vitest run
+# Frontend (11 tests)
+cd frontend
+npx vitest run
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python, FastAPI, SQLAlchemy, Alembic, Pydantic |
+| Database | PostgreSQL (production), SQLite (local dev and tests) |
+| LLM | Anthropic Claude Sonnet (generation + judging), Claude Haiku (moderation) |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Recharts |
+| Localization | babel, langdetect, python-bidi, Unicode script detection |
+| Testing | pytest (79 tests), Vitest (11 tests) |
+| CI/CD | GitHub Actions (backend tests, frontend tests, prompt regression gate) |
+| Infrastructure | Docker Compose |
+
+## Project Structure
+
+```
+backend/
+  app/
+    main.py              FastAPI app with CORS and auto-table creation
+    config.py            Settings (thresholds, DB URL, API key)
+    database.py          SQLAlchemy engine and session
+    models/              5 database models (prompts, versions, golden sets, eval runs, CI runs)
+    schemas/             Pydantic request/response schemas
+    routers/             7 route modules (health, prompts, golden sets, gateway, eval runs, CI, dashboard)
+    services/            LLM client, quality/hallucination judges, moderator, world-readiness, CI gate
+    utils/               Content hashing, cross-database UUID type
+  alembic/               Database migrations (for PostgreSQL)
+  tests/                 79 pytest tests with mocked LLM calls
+
+frontend/
+  src/
+    pages/               4 pages with explanatory text and context
+    components/          6 components (layout, badges, charts, cards, diff modal)
+    api/                 Typed fetch wrapper with all endpoint functions
+    types/               TypeScript interfaces
+  tests/                 11 Vitest tests
+
+scripts/
+  seed.py                Demo data seeder (24 eval runs, regression scenarios)
+
+.github/workflows/
+  ci.yml                 3-job CI pipeline (backend, frontend, prompt regression)
 ```
 
 ## License

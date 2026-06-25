@@ -1,4 +1,4 @@
-name: CI — Eval Gateway
+name: CI - Eval Gateway
 
 on:
   push:

@@ -2,21 +2,21 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
 from app.database import Base
+from app.utils.uuid_type import CompatibleUUID
 
 
 class EvalRun(Base):
     __tablename__ = "eval_runs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        CompatibleUUID, primary_key=True, default=uuid.uuid4
     )
     prompt_version_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("prompt_versions.id"), nullable=False
+        CompatibleUUID, ForeignKey("prompt_versions.id"), nullable=False
     )
     locale: Mapped[str] = mapped_column(String(10), nullable=False)
     input_text: Mapped[str] = mapped_column(Text, nullable=False)

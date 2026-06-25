@@ -128,7 +128,7 @@ def seed(base_url: str):
     db = Session()
 
     eval_runs_data = [
-        # ── customer-support v1 (production) — GOOD across locales ──────
+        # ── customer-support v1 (production)  - GOOD across locales ──────
         (v1_id, "en-US", "How do I reset my password?",
          "To reset your password, go to Settings > Security > Reset Password. Click the reset button and follow the email instructions. If you need further help, contact our support team.",
          0.92, "Highly relevant and complete response", 0.05, "No hallucination detected", True, "Content is appropriate",
@@ -169,7 +169,7 @@ def seed(base_url: str):
          0.87, "正確で完全な回答", 0.05, "情報は正確", True, "適切",
          True, {"passed": True, "checks": [{"check": "cjk_script", "passed": True, "detail": "CJK script present"}]}),
 
-        # ── customer-support v2 (staging) — LOWER QUALITY (regression demo) ──
+        # ── customer-support v2 (staging)  - LOWER QUALITY (regression demo) ──
         (v2_id, "en-US", "How do I reset my password?",
          "Go to settings, reset password.",
          0.55, "Too brief, missing details", 0.12, "No hallucination but incomplete", True, "OK",
@@ -202,10 +202,10 @@ def seed(base_url: str):
          False, {"passed": False, "checks": [
              {"check": "arabic_script", "passed": False, "detail": "No Arabic script detected"},
              {"check": "rtl_direction", "passed": False, "detail": "No RTL markers or Arabic script detected"},
-             {"check": "untranslated_strings", "passed": False, "latin_ratio": 1.0, "detail": "Latin script ratio: 100.0% — likely untranslated content"}
+             {"check": "untranslated_strings", "passed": False, "latin_ratio": 1.0, "detail": "Latin script ratio: 100.0%  - likely untranslated content"}
          ]}),
 
-        # ── product-description v1 — GOOD ──────────────────────────────
+        # ── product-description v1  - GOOD ──────────────────────────────
         (v3_id, "en-US", "Wireless noise-canceling headphones",
          "Experience audio perfection with our Premium Wireless Headphones. Featuring advanced active noise cancellation technology, these headphones deliver crystal-clear sound in any environment. With 30-hour battery life and ultra-comfortable memory foam ear cushions, they're designed for all-day listening pleasure. Compatible with all Bluetooth 5.0 devices.",
          0.95, "Excellent product description with key features", 0.08, "Slight embellishment but acceptable for marketing", True, "Appropriate",
@@ -226,7 +226,7 @@ def seed(base_url: str):
          0.94, "優れた製品説明", 0.05, "マーケティングとして許容範囲", True, "適切",
          True, {"passed": True, "checks": [{"check": "cjk_script", "passed": True, "detail": "CJK script present"}]}),
 
-        # ── product-description v2 — LOWER QUALITY ─────────────────────
+        # ── product-description v2  - LOWER QUALITY ─────────────────────
         (v4_id, "en-US", "Wireless noise-canceling headphones",
          "Headphones. Noise canceling. Wireless. Battery lasts long.",
          0.40, "Too terse for product description", 0.20, "No fabrication but uninformative", True, "OK",
@@ -285,7 +285,7 @@ def seed(base_url: str):
     # ── CI runs ────────────────────────────────────────────────────────
     print("\nCreating CI runs...")
 
-    # CI run 1: customer-support v2 vs v1 — REGRESSION (quality dropped)
+    # CI run 1: customer-support v2 vs v1  - REGRESSION (quality dropped)
     ci1 = CIRun(
         prompt_id=p1_id,
         candidate_version_id=v2_id,
@@ -305,7 +305,7 @@ def seed(base_url: str):
     )
     db.add(ci1)
 
-    # CI run 2: product-description v2 vs v1 — REGRESSION
+    # CI run 2: product-description v2 vs v1  - REGRESSION
     ci2 = CIRun(
         prompt_id=p2_id,
         candidate_version_id=v4_id,
@@ -324,7 +324,7 @@ def seed(base_url: str):
     )
     db.add(ci2)
 
-    # CI run 3: customer-support v1 — PASS (no baseline / initial)
+    # CI run 3: customer-support v1  - PASS (no baseline / initial)
     ci3 = CIRun(
         prompt_id=p1_id,
         candidate_version_id=v1_id,

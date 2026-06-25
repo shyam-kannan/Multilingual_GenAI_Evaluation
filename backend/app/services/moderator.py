@@ -11,5 +11,5 @@ def check_moderation(text: str, locale: str) -> dict:
     except Exception:
         return {
             "passed": False,
-            "reasoning": "Moderation service error — fail-closed",
+            "reasoning": "Moderation service error - fail-closed",
         }
