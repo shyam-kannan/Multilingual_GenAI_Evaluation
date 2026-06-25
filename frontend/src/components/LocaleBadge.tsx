@@ -16,7 +16,7 @@ export default function LocaleBadge({ locale, passRate }: LocaleBadgeProps) {
     <span
       className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${color}`}
     >
-      {locale}: {(passRate * 100).toFixed(0)}%
+      {passRate >= 0 ? `${locale}: ${(passRate * 100).toFixed(0)}%` : locale}
     </span>
   );
 }
